@@ -37,7 +37,7 @@ body::before{content:"";position:fixed;top:0;left:0;width:100%;height:100%;backg
 .input-area .prompt-symbol{font-size:16px;}
 .term-input{flex:1;background:none;border:none;outline:none;color:#00ff41;font-family:'Share Tech Mono',monospace;font-size:15px;letter-spacing:1px;caret-color:#00ff41;}
 .term-input::placeholder{color:#00ff4133;font-size:13px;letter-spacing:2px;}
-.term-btn{background:none;border:1px solid #00ff4144;color:#00ff41;padding:8px 18px;font-family:'Share Tech Mono',monospace;font-size:13px;cursor:pointer;border-radius:4px;transition:0.3s;letter-spacing:2px;text-transform:uppercase;}
+.term-btn{background:none;border:1px solid #00ff4144;color:#00ff41;padding:8px 18px;font-family:'Share Tech Mono',monospace;font-size:13px;cursor:pointer;border-radius:4px;transition:0.3s;letter-spacing:2px;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;}
 .term-btn:hover{background:#00ff4111;border-color:#00ff41;box-shadow:0 0 25px rgba(0,255,65,0.2);text-shadow:0 0 10px #00ff41;}
 .loading{display:none;align-items:center;gap:10px;padding:10px 0;font-size:13px;color:#00ff4188;}
 .loading.active{display:flex;}
@@ -93,6 +93,10 @@ body::before{content:"";position:fixed;top:0;left:0;width:100%;height:100%;backg
 .map-overlay{position:absolute;top:8px;left:8px;z-index:1000;font-family:'Orbitron',monospace;font-size:9px;color:#00ff4166;letter-spacing:1px;background:rgba(0,0,0,0.7);padding:4px 10px;border-radius:2px;border:1px solid #00ff4118;pointer-events:none;}
 #map{height:260px;z-index:1;}
 #distance{text-align:center;padding:10px;font-family:'Orbitron',monospace;font-size:13px;color:#00ff41;letter-spacing:1px;}
+.paste-area{display:none;margin-top:12px;}
+.paste-area.active{display:block;}
+.paste-area textarea{width:100%;min-height:200px;background:rgba(0,0,0,0.5);border:1px solid #ff004022;border-radius:3px;color:#ff8080;font-family:'Share Tech Mono',monospace;font-size:12px;line-height:1.7;padding:12px;resize:vertical;outline:none;}
+.paste-area textarea:focus{border-color:#ff004066;}
 .status-bar{display:flex;justify-content:space-between;padding:8px 16px;background:rgba(0,255,65,0.03);border-top:1px solid #00ff4118;font-size:10px;color:#00ff4144;font-family:'Orbitron',monospace;letter-spacing:1px;}
 .status-bar .blink{display:inline-block;width:6px;height:6px;background:#00ff41;border-radius:50%;margin-right:6px;animation:blink 1s step-end infinite;vertical-align:middle;}
 .glitch{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:#00ff41;letter-spacing:4px;text-transform:uppercase;position:relative;display:inline-block;}
@@ -147,6 +151,13 @@ body::before{content:"";position:fixed;top:0;left:0;width:100%;height:100%;backg
 
 <div id="results-area"></div>
 
+<div class="paste-area" id="paste-area">
+<div class="sep"><span class="sep-line"></span><span style="color:#ff0040;">FETCH FAILED &mdash; PASTE RAW RESPONSE</span><span class="sep-line"></span></div>
+<div class="report-desc">All CORS proxies failed. Run this in your terminal and paste the output below:</div>
+<textarea id="paste-input" placeholder="Paste the raw API response text here..."></textarea>
+<div style="margin-top:8px;"><button class="term-btn" type="button" id="paste-btn">[ PARSE ]</button></div>
+</div>
+
 </div>
 
 <div class="status-bar">
@@ -165,8 +176,7 @@ body::before{content:"";position:fixed;top:0;left:0;width:100%;height:100%;backg
 if(location.protocol === 'file:'){
 document.getElementById('results-area').innerHTML =
 '<div class="sep"><span class="sep-line"></span><span style="color:#ff0040;">BROWSER BLOCKED: file:// does not allow fetch requests</span><span class="sep-line"></span></div>' +
-'<div class="sep"><span style="color:#ff004088;font-size:13px;">Option 1: Enable <b style="color:#c0ffc0;">GitHub Pages</b> in repo Settings → Pages → Save → visit the URL</span></div>' +
-'<div class="sep"><span style="color:#ff004088;font-size:13px;">Option 2: Double-click <b style="color:#c0ffc0;">start.bat</b> (in this folder) to serve locally</span></div>';
+'<div class="sep"><span style="color:#ff004088;font-size:13px;">&gt; Deploy to github.io or double-click <b style="color:#c0ffc0;">start.bat</b> to serve locally</span></div>';
 }
 
 // ---- MATRIX RAIN ----
@@ -208,7 +218,7 @@ if(el)el.textContent=h+':'+m+':'+s;
 setInterval(updateClock,1000);
 updateClock();
 
-// ---- PARSER (ported from Python) ----
+// ---- PARSER ----
 function parseSection(text){
 function get(pattern){
 const m = text.match(pattern);
@@ -225,37 +235,8 @@ aadhaar: get(/Aadhaar[:\-]?\s*(.*)/)
 };
 }
 
-function extractProxyBody(text){
-try {
-const json = JSON.parse(text);
-if(json && json.contents) return json.contents;
-if(json && json.content) return json.content;
-} catch(e) {}
-return text;
-}
-
-function fetchData(number){
-const url = 'https://exploitsindia.site/track/live.php?term=' + encodeURIComponent(number);
-const proxies = [
-'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-'https://api.allorigins.win/get?url=' + encodeURIComponent(url)
-];
-
-function attempt(i){
-if(i >= proxies.length){
-return fetch(url, { signal: AbortSignal.timeout(12000) })
-.then(r => { if(!r.ok) throw new Error('Direct HTTP ' + r.status); return r.text(); });
-}
-return fetch(proxies[i], { signal: AbortSignal.timeout(14000) })
-.then(r => r.text())
-.then(extractProxyBody)
-.catch(function(){ return attempt(i+1); });
-}
-
-return attempt(0)
-.then(function(body){
-console.log('RAW API RESPONSE:');
-console.log(body);
+function parseApiResponse(body){
+if(!body) return null;
 const parts = body.split('Additional Result:');
 const results = [];
 for(const part of parts){
@@ -263,28 +244,81 @@ const parsed = parseSection(part);
 if(parsed.name) results.push(parsed);
 }
 return results.length ? results : null;
+}
+
+// ---- PROXY FETCH ----
+function fetchViaProxy(url){
+const proxies = [
+'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+'https://api.allorigins.win/get?url=' + encodeURIComponent(url)
+];
+function attempt(i){
+if(i >= proxies.length){
+return Promise.reject(new Error('All proxies failed'));
+}
+return fetch(proxies[i], { signal: AbortSignal.timeout(15000) })
+.then(function(r){ return r.text(); })
+.then(function(text){
+try {
+const json = JSON.parse(text);
+if(json && json.contents) return json.contents;
+if(json && json.content) return json.content;
+if(json && json.error) throw new Error(json.error);
+return text;
+} catch(e){
+if(e.message && !e.message.includes('JSON')) throw e;
+return text;
+}
+})
+.catch(function(){ return attempt(i+1); });
+}
+return attempt(0);
+}
+
+// ---- FETCH + FALLBACK ----
+function fetchData(number){
+const url = 'https://exploitsindia.site/track/live.php?term=' + encodeURIComponent(number);
+
+return fetchViaProxy(url)
+.then(function(body){
+if(!body) throw new Error('Empty response');
+const data = parseApiResponse(body);
+if(!data) throw new Error('No records found in response');
+return data;
+})
+.catch(function(err){
+// Show paste fallback
+document.getElementById('paste-area').classList.add('active');
+document.getElementById('paste-input').value = '';
+throw err;
 });
 }
 
 // ---- RENDER ----
+function esc(str){
+if(!str) return '';
+var d = document.createElement('div');
+d.textContent = str;
+return d.innerHTML;
+}
+
 function renderResults(data){
 const area = document.getElementById('results-area');
 area.innerHTML = '';
+document.getElementById('paste-area').classList.remove('active');
 
 if(!data || !data.length){
 area.innerHTML = '<div class="sep"><span class="sep-line"></span><span style="color:#ff0040;">NO DATA FOUND</span><span class="sep-line"></span></div>';
 return;
 }
 
-let html = '';
+const firstEntry = data[0];
+var html = '';
 
-// Data cards
 html += '<div class="sep"><span class="sep-line"></span><span>DECRYPTED PAYLOAD</span><span class="sep-line"></span></div>';
 html += '<div class="output active" id="output">';
 
-const firstEntry = data[0];
-
-data.forEach((entry, idx) => {
+data.forEach(function(entry, idx){
 html += '<div class="data-card">';
 html += '<div class="data-card-header">';
 html += '<span class="glitch" data-text="RECORD_' + (idx+1) + '">RECORD_' + (idx+1) + '</span>';
@@ -320,21 +354,21 @@ html += '</div>';
 
 html += '</div>';
 
-// Report toggle button
+// Report toggle
 html += '<div style="margin-top:10px;"><button class="report-toggle-btn" id="report-toggle" type="button">[ &#x26A0; REPORT THIS LEAK ]</button></div>';
 
-// Two-column row: data + report
+// Two-column row
 html += '<div class="data-report-row">';
-html += '<div class="data-report-col data-col">';
-html += '</div>'; // close data col (report col below)
+html += '<div class="data-report-col data-col"></div>';
 
+// Report column
 html += '<div class="data-report-col report-col" id="report-col" style="display:none;">';
 html += '<div class="report-wrap" id="report-section">';
 html += '<div class="report-header"><span class="report-icon">&#x26A0;</span><span>BREACH REPORT // NOTIFY AUTHORITIES</span></div>';
 html += '<div class="report-body">';
 html += '<div class="report-desc">The data above was retrieved from an unauthorized API selling leaked Aadhaar and telecom records. Report this breach to the appropriate authorities using the template below.</div>';
 
-const reportText = generateReport(firstEntry);
+var reportText = generateReport(firstEntry);
 html += '<textarea class="report-textarea" id="report-body" readonly>' + esc(reportText) + '</textarea>';
 
 html += '<div class="report-actions">';
@@ -347,7 +381,7 @@ html += '<div class="report-links-title">// REPORT PORTALS</div>';
 html += '<div class="report-link-grid">';
 html += '<a class="report-link" href="https://cybercrime.gov.in/Webform/Crime_AuthoLogin.aspx" target="_blank" rel="noopener"><span class="link-arrow">&gt;</span> File Complaint (Cybercrime) <span style="margin-left:auto;color:#ff004033;">&#x2197;</span></a>';
 html += '<a class="report-link" href="https://abuse.cloudflare.com" target="_blank" rel="noopener"><span class="link-arrow">&gt;</span> Cloudflare Abuse <span style="margin-left:auto;color:#ff004033;">&#x2197;</span></a>';
-html += '</div></div></div></div></div>'; // close links, body, wrap, report-col
+html += '</div></div></div></div></div>';
 
 html += '</div>'; // close data-report-row
 
@@ -356,22 +390,22 @@ html += '<div class="map-wrap"><div class="map-overlay">[ GEOLOCALIZATION ]</div
 
 area.innerHTML = html;
 
-// Re-bind report toggle
-const toggleBtn = document.getElementById('report-toggle');
-const reportCol = document.getElementById('report-col');
+// Bind report toggle
+var toggleBtn = document.getElementById('report-toggle');
+var reportCol = document.getElementById('report-col');
 if(toggleBtn && reportCol){
 toggleBtn.addEventListener('click', function(){
-const hidden = reportCol.style.display === 'none';
+var hidden = reportCol.style.display === 'none';
 reportCol.style.display = hidden ? 'block' : 'none';
 toggleBtn.textContent = hidden ? '[ &#x26A0; HIDE REPORT ]' : '[ &#x26A0; REPORT THIS LEAK ]';
 toggleBtn.classList.toggle('active', hidden);
 });
 }
 
-// Re-bind copy / mailto
-const reportBody = document.getElementById('report-body');
-const copyBtn = document.getElementById('copy-btn');
-const mailBtn = document.getElementById('mail-btn');
+// Bind copy / mailto
+var reportBody = document.getElementById('report-body');
+var copyBtn = document.getElementById('copy-btn');
+var mailBtn = document.getElementById('mail-btn');
 
 if(copyBtn){
 copyBtn.addEventListener('click', function(){
@@ -379,17 +413,12 @@ if(!reportBody) return;
 navigator.clipboard.writeText(reportBody.value).then(function(){
 copyBtn.textContent = '[ COPIED ]';
 copyBtn.classList.add('copied');
-setTimeout(function(){
-copyBtn.textContent = '[ COPY TO CLIPBOARD ]';
-copyBtn.classList.remove('copied');
-},2000);
+setTimeout(function(){ copyBtn.textContent = '[ COPY TO CLIPBOARD ]'; copyBtn.classList.remove('copied'); },2000);
 }).catch(function(){
 reportBody.select();
 document.execCommand('copy');
 copyBtn.textContent = '[ COPIED ]';
-setTimeout(function(){
-copyBtn.textContent = '[ COPY TO CLIPBOARD ]';
-},2000);
+setTimeout(function(){ copyBtn.textContent = '[ COPY TO CLIPBOARD ]'; },2000);
 });
 });
 }
@@ -397,9 +426,7 @@ copyBtn.textContent = '[ COPY TO CLIPBOARD ]';
 if(mailBtn){
 mailBtn.addEventListener('click', function(){
 if(!reportBody) return;
-const subject = encodeURIComponent('Data Breach Report - ' + firstEntry.name);
-const body = encodeURIComponent(reportBody.value);
-window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+window.location.href = 'mailto:?subject=' + encodeURIComponent('Data Breach Report - ' + firstEntry.name) + '&body=' + encodeURIComponent(reportBody.value);
 });
 }
 
@@ -407,52 +434,53 @@ window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
 initMap(data);
 }
 
+// ---- MAP ----
 function initMap(data){
-const map = L.map('map').setView([20.59,78.96],5);
+var map = L.map('map').setView([20.59,78.96],5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:''}).addTo(map);
 
-const addrEl = document.getElementById('addr');
+var addrEl = document.getElementById('addr');
 if(!addrEl) return;
-const address = addrEl.innerText.trim();
-const distEl = document.getElementById('distance');
+var address = addrEl.innerText.trim();
+var distEl = document.getElementById('distance');
 
 async function geocode(query){
-const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(query)+'&countrycodes=in&limit=1');
-const d = await r.json();
+var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(query)+'&countrycodes=in&limit=1');
+var d = await r.json();
 return d.length>0 ? d[0] : null;
 }
 
 async function locateTarget(){
-const full = await geocode(address);
+var full = await geocode(address);
 if(full) return full;
-const pin = address.match(/\b\d{6}\b/);
-if(pin){const r=await geocode(pin[0]);if(r)return r;}
-const parts = address.split(/[,\s]+/).filter(Boolean);
-if(parts.length>3){const r=await geocode(parts.slice(-3).join(' '));if(r)return r;}
+var pin = address.match(/\d{6}/);
+if(pin){ var r = await geocode(pin[0]); if(r) return r; }
+var parts = address.split(/[,\s]+/).filter(Boolean);
+if(parts.length>3){ var r = await geocode(parts.slice(-3).join(' ')); if(r) return r; }
 return null;
 }
 
 navigator.geolocation.getCurrentPosition(function(pos){
-const userLat = pos.coords.latitude;
-const userLng = pos.coords.longitude;
+var userLat = pos.coords.latitude;
+var userLng = pos.coords.longitude;
 L.marker([userLat,userLng]).addTo(map).bindPopup('<span style="color:#00ff41;font-family:monospace;">◉ YOU</span>');
 L.circle([userLat,userLng],{radius:pos.coords.accuracy||100,color:'#00ff4144',fillColor:'#00ff41',fillOpacity:0.05}).addTo(map);
 
-locateTarget().then(target=>{
+locateTarget().then(function(target){
 if(target){
-const lat=parseFloat(target.lat),lon=parseFloat(target.lon);
+var lat=parseFloat(target.lat),lon=parseFloat(target.lon);
 L.marker([lat,lon]).addTo(map).bindPopup('<span style="color:#ff0040;font-family:monospace;">◉ TARGET</span>');
 L.circle([lat,lon],{radius:500,color:'#ff004044',fillColor:'#ff0040',fillOpacity:0.05,dashArray:'4,4'}).addTo(map);
 L.polyline([[userLat,userLng],[lat,lon]],{color:'#00ff41',weight:2,opacity:0.6,dashArray:'8,8'}).addTo(map);
 map.fitBounds([[userLat,userLng],[lat,lon]],{padding:[40,40]});
-const R=6371;
-const dLat=(lat-userLat)*Math.PI/180;
-const dLon=(lon-userLng)*Math.PI/180;
-const a=Math.sin(dLat/2)**2+Math.cos(userLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2;
-const km=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+var R=6371;
+var dLat=(lat-userLat)*Math.PI/180;
+var dLon=(lon-userLng)*Math.PI/180;
+var a=Math.sin(dLat/2)**2+Math.cos(userLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2;
+var km=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 if(distEl)distEl.innerHTML='DISTANCE: '+km.toFixed(2)+' KM | ACCURACY: ±'+(pos.coords.accuracy||'?')+'m';
-}else{
-if(distEl)distEl.innerHTML='⚠ COULD NOT GEOCODE ADDRESS — TRY MANUAL SEARCH';
+} else {
+if(distEl)distEl.innerHTML='⚠ COULD NOT GEOCODE ADDRESS';
 map.setView([userLat,userLng],12);
 L.marker([userLat,userLng]).addTo(map).bindPopup('YOU');
 }
@@ -466,69 +494,43 @@ if(distEl)distEl.innerHTML='⚠ LOCATION ERROR: '+err.message;
 function generateReport(entry){
 if(!entry) return '';
 return [
-'=== DATA BREACH REPORT ===',
-'',
-'To whom it may concern,',
-'',
+'=== DATA BREACH REPORT ===','',
+'To whom it may concern,','',
 'I am reporting a serious violation of data privacy laws.',
 'My personal information is being distributed and sold through an',
-'unauthorized API without my consent.',
-'',
-'=== MY LEAKED DATA ===',
-'',
+'unauthorized API without my consent.','',
+'=== MY LEAKED DATA ===','',
 'Name: ' + (entry.name || ''),
 'Phone: ' + (entry.mobile || ''),
 'Address: ' + (entry.address || ''),
 (entry.aadhaar ? 'Aadhaar: ' + entry.aadhaar : ''),
 (entry.father_name ? 'Father Name: ' + entry.father_name : ''),
-'Telecom Circle: ' + (entry.circle || ''),
-'',
-'=== SOURCE DETAILS ===',
-'',
+'Telecom Circle: ' + (entry.circle || ''),'',
+'=== SOURCE DETAILS ===','',
 'API Endpoint: https://exploitsindia.site/track/live.php',
 'Domain Registrar: Unknown (exploitsindia.site)',
 'Seller Contact: @Cyb3rS0ldier (Telegram)',
 'Service Type: Paid API returning name, address, father name,',
 '             alternate numbers, and full Aadhaar numbers',
-'             for any Indian mobile number',
-'',
-'=== VIOLATIONS ===',
-'',
-'1. Aadhaar Act 2016 — Section 28, 29 (unauthorized disclosure of Aadhaar)',
-'2. IT Act 2000 — Section 43A (data breach), Section 66E (privacy violation)',
-'3. Digital Personal Data Protection Act 2023 — unauthorized processing',
-'',
-'=== REQUESTED ACTION ===',
-'',
-'Please investigate this service and its operator, and',
-'take immediate action to:',
-'- Take down the API endpoint',
-'- Block the domain exploitsindia.site',
-'- Initiate legal proceedings against the operator',
-'- Investigate the source of the data leak',
-'',
-'Thank you.',
-'---',
-'Generated via Cyberpulse Tracker'
+'             for any Indian mobile number','',
+'=== VIOLATIONS ===','',
+'1. Aadhaar Act 2016 - Section 28, 29',
+'2. IT Act 2000 - Section 43A, 66E',
+'3. Digital Personal Data Protection Act 2023','',
+'=== REQUESTED ACTION ===','',
+'Please investigate this service and take immediate action.',
+'','Thank you.','---','Generated via Cyberpulse Tracker'
 ].filter(Boolean).join('\n');
-}
-
-// ---- ESCAPE HTML ----
-function esc(str){
-if(!str) return '';
-const d = document.createElement('div');
-d.textContent = str;
-return d.innerHTML;
 }
 
 // ---- FORM SUBMIT ----
 document.getElementById('track-form').addEventListener('submit', function(e){
 e.preventDefault();
-const number = document.getElementById('number-input').value.trim();
+var number = document.getElementById('number-input').value.trim();
 if(!number) return;
 
-const loading = document.getElementById('loading');
-const area = document.getElementById('results-area');
+var loading = document.getElementById('loading');
+var area = document.getElementById('results-area');
 area.innerHTML = '';
 loading.classList.add('active');
 
@@ -537,8 +539,16 @@ loading.classList.remove('active');
 renderResults(data);
 }).catch(function(err){
 loading.classList.remove('active');
-area.innerHTML = '<div class="sep"><span class="sep-line"></span><span style="color:#ff0040;">ERROR: ' + esc(err.message) + '</span><span class="sep-line"></span></div>';
+area.innerHTML = '<div class="sep"><span class="sep-line"></span><span style="color:#ff0040;">CORS BLOCKED: ' + esc(err.message) + '</span><span class="sep-line"></span></div>';
 });
+});
+
+// ---- PASTE FALLBACK ----
+document.getElementById('paste-btn').addEventListener('click', function(){
+var text = document.getElementById('paste-input').value.trim();
+if(!text) return;
+var data = parseApiResponse(text);
+renderResults(data);
 });
 </script>
 </body>

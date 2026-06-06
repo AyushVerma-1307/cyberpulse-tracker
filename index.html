@@ -217,24 +217,39 @@ aadhaar: get(/Aadhaar[:\-]?\s*(.*)/)
 };
 }
 
+function extractProxyBody(text){
+try {
+const json = JSON.parse(text);
+if(json && json.contents) return json.contents;
+if(json && json.content) return json.content;
+} catch(e) {}
+return text;
+}
+
 function fetchData(number){
 const url = 'https://exploitsindia.site/track/live.php?term=' + encodeURIComponent(number);
-const proxyUrls = [
+const proxies = [
 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
 'https://api.allorigins.win/get?url=' + encodeURIComponent(url),
 'https://corsproxy.io/?' + encodeURIComponent(url)
 ];
-function tryProxy(i){
-if(i >= proxyUrls.length) return fetch(url, { signal: AbortSignal.timeout(12000) }).then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
-return fetch(proxyUrls[i], { signal: AbortSignal.timeout(12000) })
-.then(r => { if(!r.ok) throw new Error('Proxy ' + i + ' returned ' + r.status); return r.text(); })
-.catch(function(){ return tryProxy(i+1); });
+
+function attempt(i){
+if(i >= proxies.length){
+return fetch(url, { signal: AbortSignal.timeout(12000) })
+.then(r => { if(!r.ok) throw new Error('Direct HTTP ' + r.status); return r.text(); });
 }
-return tryProxy(0)
-.then(res => {
+return fetch(proxies[i], { signal: AbortSignal.timeout(14000) })
+.then(r => r.text())
+.then(extractProxyBody)
+.catch(function(){ return attempt(i+1); });
+}
+
+return attempt(0)
+.then(function(body){
 console.log('RAW API RESPONSE:');
-console.log(res);
-const parts = res.split('Additional Result:');
+console.log(body);
+const parts = body.split('Additional Result:');
 const results = [];
 for(const part of parts){
 const parsed = parseSection(part);

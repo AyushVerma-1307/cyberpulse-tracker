@@ -152,10 +152,15 @@ body::before{content:"";position:fixed;top:0;left:0;width:100%;height:100%;backg
 <div id="results-area"></div>
 
 <div class="paste-area" id="paste-area">
-<div class="sep"><span class="sep-line"></span><span style="color:#ff0040;">FETCH FAILED &mdash; PASTE RAW RESPONSE</span><span class="sep-line"></span></div>
-<div class="report-desc">All CORS proxies failed. Run this in your terminal and paste the output below:</div>
-<textarea id="paste-input" placeholder="Paste the raw API response text here..."></textarea>
-<div style="margin-top:8px;"><button class="term-btn" type="button" id="paste-btn">[ PARSE ]</button></div>
+<div class="sep"><span class="sep-line"></span><span style="color:#ff0040;">CORS PROXY UNRELIABLE &mdash; PASTE RAW RESPONSE INSTEAD</span><span class="sep-line"></span></div>
+<div class="report-desc">Open a terminal (cmd/powershell/bash) and run:</div>
+<pre style="background:rgba(0,0,0,0.5);border:1px solid #00ff4122;border-radius:3px;padding:10px;font-size:12px;color:#c0ffc0;overflow-x:auto;margin-bottom:10px;cursor:pointer;" id="curl-cmd">curl "https://exploitsindia.site/track/live.php?term=NUMBER"</pre>
+<div class="report-desc">Then paste the full output below and click PARSE:</div>
+<textarea id="paste-input" placeholder="Paste the raw API response text here..." spellcheck="false"></textarea>
+<div style="margin-top:8px;display:flex;gap:8px;">
+<button class="term-btn" type="button" id="paste-btn">[ PARSE ]</button>
+<button class="term-btn" type="button" id="copy-curl-btn" style="border-color:#00ff4144;color:#00ff41;">[ COPY CURL ]</button>
+</div>
 </div>
 
 </div>
@@ -248,28 +253,34 @@ return results.length ? results : null;
 
 // ---- PROXY FETCH ----
 function fetchViaProxy(url){
+const encoded = encodeURIComponent(url);
 const proxies = [
-'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-'https://api.allorigins.win/get?url=' + encodeURIComponent(url)
+['https://api.allorigins.win/raw?url=' + encoded, 'json'],
+['https://api.allorigins.win/get?url=' + encoded, 'json'],
+['https://cors-proxy.fringe.zone/' + url, 'raw'],
+['https://api.allorigins.win/raw?url=' + encoded + '&_=' + Date.now(), 'json']
 ];
-function attempt(i){
-if(i >= proxies.length){
-return Promise.reject(new Error('All proxies failed'));
-}
-return fetch(proxies[i], { signal: AbortSignal.timeout(15000) })
-.then(function(r){ return r.text(); })
-.then(function(text){
+function unwrap(text, type){
+if(type === 'json'){
 try {
 const json = JSON.parse(text);
 if(json && json.contents) return json.contents;
 if(json && json.content) return json.content;
 if(json && json.error) throw new Error(json.error);
-return text;
 } catch(e){
-if(e.message && !e.message.includes('JSON')) throw e;
+if(e.message && !e.message.includes('JSON') && !e.message.includes('parse')) throw e;
+}
+}
 return text;
 }
+function attempt(i){
+if(i >= proxies.length) return Promise.reject(new Error('All proxies failed'));
+return fetch(proxies[i][0], { signal: AbortSignal.timeout(15000) })
+.then(function(r){
+if(!r.ok) throw new Error('HTTP ' + r.status);
+return r.text();
 })
+.then(function(text){ return unwrap(text, proxies[i][1]); })
 .catch(function(){ return attempt(i+1); });
 }
 return attempt(0);
@@ -549,6 +560,22 @@ var text = document.getElementById('paste-input').value.trim();
 if(!text) return;
 var data = parseApiResponse(text);
 renderResults(data);
+});
+
+document.getElementById('copy-curl-btn').addEventListener('click', function(){
+var num = document.getElementById('number-input').value.trim() || 'NUMBER';
+var cmd = 'curl "https://exploitsindia.site/track/live.php?term=' + num + '"';
+navigator.clipboard.writeText(cmd).then(function(){
+var btn = document.getElementById('copy-curl-btn');
+btn.textContent = '[ COPIED ]';
+setTimeout(function(){ btn.textContent = '[ COPY CURL ]'; },2000);
+});
+});
+
+// Update curl command when number input changes
+document.getElementById('number-input').addEventListener('input', function(){
+var num = this.value.trim() || 'NUMBER';
+document.getElementById('curl-cmd').textContent = 'curl "https://exploitsindia.site/track/live.php?term=' + num + '"';
 });
 </script>
 </body>

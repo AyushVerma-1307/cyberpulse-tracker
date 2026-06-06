@@ -161,6 +161,13 @@ body::before{content:"";position:fixed;top:0;left:0;width:100%;height:100%;backg
 </div>
 
 <script>
+// ---- FILE:// DETECTION ----
+if(location.protocol === 'file:'){
+document.getElementById('results-area').innerHTML =
+'<div class="sep"><span class="sep-line"></span><span style="color:#ff0040;">ERROR: Open via HTTP server, not file://</span><span class="sep-line"></span></div>' +
+'<div class="sep"><span style="color:#ff004088;font-size:13px;">Run:&nbsp; <b style="color:#c0ffc0;">python -m http.server 8000</b>&nbsp; then open&nbsp; <b style="color:#c0ffc0;">http://localhost:8000</b></span></div>';
+}
+
 // ---- MATRIX RAIN ----
 const c = document.getElementById('matrix-canvas');
 const ctx = c.getContext('2d');
@@ -230,8 +237,7 @@ function fetchData(number){
 const url = 'https://exploitsindia.site/track/live.php?term=' + encodeURIComponent(number);
 const proxies = [
 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-'https://api.allorigins.win/get?url=' + encodeURIComponent(url),
-'https://corsproxy.io/?' + encodeURIComponent(url)
+'https://api.allorigins.win/get?url=' + encodeURIComponent(url)
 ];
 
 function attempt(i){
